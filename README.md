@@ -8,4 +8,4 @@ For those who want to use these utilities (which I highly suggest, as they are f
 
 All classes will be located in the `org.team555` package.
 
-The tools used to generate a consistent layout for the archives found in the *archives* folder can be found in the *tools* folder.
+The tools used to generate a consistent layout for the archives found in the *archives* folder can be found in the *archiver* folder.

@@ -7,6 +7,7 @@ __version__ = '1.0.0'
 import json
 import os
 import re
+import string
 import sys
 import tempfile
 import shutil
@@ -26,30 +27,122 @@ JAVA_DIR = os.path.join(PROJ_DIR, JAVA_DIR_NAME)
 OUTPUT_DIR = os.path.join(PROJ_DIR, 'archives')
 ARCHIVES_JSON = os.path.join(THIS_DIR, 'archives.json')
 
-ADESC_DIR = os.path.join(THIS_DIR, 'adesc')
+SOURCE_DIR = THIS_DIR
 
-VER_PATTERN = re.compile(r'\s*\<!ver ([0123456789\.]+)\!>\s*')
-
+TAG_PATTERN = re.compile(r'\s*\<!(\w+)(?:\s(.+))?!>\s*')
+COMMENT_PATTERN = re.compile(r'\s*\<#.+#>\s*')
+INT_PATTERN = re.compile(r'\-?\d+$')
+FLOAT_PATTERN = re.compile(r'\-?\d+\.\d+$')
 
 # custom exception type
 class ArchiverException(Exception):
     pass
 
 
+# Tag class
+class Tag:
+
+    def __init__(self, match: re.Match, line: int):
+
+        self.line = line
+        self.tag = match.group(1)
+
+        if match.group(2).strip() != '':
+            self._values = re.split(r'\s+', match.group(2))
+        else:
+            self._values = []
+        
+        print(self._values)
+
+        for i in range(len(self._values)):
+
+            val = self._values[i]
+
+            if INT_PATTERN.match(val):
+                self._values[i] = int(val)
+            elif FLOAT_PATTERN.match(val):
+                self._values[i] = float(val)
+    
+
+    def __getitem__(self, i):
+
+        if i >= len(self._values):
+            raise ArchiverException(f'Tag {self.tag} has less than {i + 1} argument(s), despite requiring more.')
+
+        return self._values[i]
+
+
+
+# function to read all tags from text then return a list of Tag objects
+# and a new version of the text without the tags
+def read_tags(text: str) -> tuple[list[Tag], str]:
+    
+    tags = []
+    new_text = ''
+
+    for i, l in enumerate(text.splitlines()):
+
+        match = TAG_PATTERN.match(l)
+
+        if match:
+            tags.append(Tag(match, i))
+            continue
+
+        comment = COMMENT_PATTERN.match(l)
+        if comment:
+            continue
+
+        new_text += l + '\n'
+
+    return tags, new_text
+
+
 # function to build a single archive
 def build_archive(
-    name: str, 
-    includes: list[str], 
-    excludes: list[str], 
+    desc_file: str,
     output_folder: str, 
     all_files: list[tuple[Path, str]]
     ):
 
-    print(f"Now building '{name}'")
-
+    # start timer
     time_start = time.time()
 
-    # get includes and excludes
+    # get archive name
+    name_path = os.path.splitext(os.path.splitext(desc_file)[0])[0]
+    name = os.path.split(name_path)[1]
+
+    print(f"Now building '{name}'")
+
+    # get archive information
+    desc_text = Path(desc_file).read_text()
+
+    # get tags from archive description
+    tags, new_text = read_tags(desc_text)
+
+    # parse tags
+    version = None
+    includes = []
+    excludes = []
+
+    for tag in tags:
+        match tag.tag:
+            case 'ver':
+                version = tag[0]
+            case 'include':
+                includes.append(tag[0])
+            case 'exclude':
+                excludes.append(tag[0])
+            case _:
+                raise ArchiverException(f'Unknown tag: {tag.tag}')
+
+    if not version:
+        raise ArchiverException(f"Archive description for archive '{name}' is invalid: no version found.")
+
+    # copy new archive description
+    copy_desc_path = os.path.join(output_folder, f'{name}.md')
+    Path(copy_desc_path).write_text(new_text)
+
+    # get files
     files = [
         (f, rel) for f, rel in all_files 
         if any(rel.startswith(i) for i in includes)
@@ -69,34 +162,6 @@ def build_archive(
     os.makedirs(build_jav)
 
     print(f'Temp build path = {build_jav}')
-
-    # copy archive description
-    desc_path = os.path.join(ADESC_DIR, f'{name}.md')
-    if not os.path.exists(desc_path):
-        raise ArchiverException(f"Archive description not found for archive '{name}'")
-
-    # get version from archive description
-    desc_text = Path(desc_path).read_text()
-
-    new_text = ''
-    found_match = False
-
-    for l in desc_text.splitlines():
-
-        match = VER_PATTERN.match(l)
-
-        if match:
-            found_match = True
-            version = match.group(1)
-            continue
-        
-        new_text += l + '\n'
-
-    if not found_match:
-        raise ArchiverException(f"Archive description for archive '{name}' is invalid: no version found.")
-
-    copy_desc_path = os.path.join(output_folder, f'{name}.md')
-    Path(copy_desc_path).write_text(new_text)
 
     # create files_{name}.json
     with open(os.path.join(build, f'files_{name}.json'), 'w') as jsf:
@@ -143,9 +208,8 @@ def main():
 
     time_start_all = time.time()
 
-    # get basic info
+    # setup temporary directory
     temp = tempfile.mkdtemp()
-    js = json.loads(Path(ARCHIVES_JSON).read_text())
 
     # get all files in java project
     all_files = [
@@ -156,15 +220,14 @@ def main():
     try:
 
         # build each archive
-        for proc in js:
+        for arch in os.listdir(SOURCE_DIR):
+
+            # skip non archive files
+            if not arch.endswith('.archive.md'):
+                continue
+
             print()
-            build_archive(
-                proc['name'], 
-                proc['include'], 
-                proc['exclude'] if 'exclude' in proc else [],
-                temp,
-                all_files
-            )
+            build_archive(os.path.join(SOURCE_DIR, arch), temp, all_files)
         
     except Exception as em:
 

@@ -1,4 +1,6 @@
 <!ver 1.0.0!>
+<!include collections!>
+<# comments #>
 # Collections
 
 ### Major Contents:

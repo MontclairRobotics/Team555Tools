@@ -19,6 +19,7 @@ from pathlib import Path
 # constants of operation
 JAVA_DIR_NAME = r'sourceproj\src\main\java\org\team555'
 BUILD_FRAME = r'org\team555'
+EXTRA_FRAME = r'toolstracker'
 
 PROJ_DIR = os.path.join(__file__, r'..\..')
 THIS_DIR = os.path.join(__file__, r'..')
@@ -44,15 +45,13 @@ class Tag:
 
     def __init__(self, match: re.Match, line: int):
 
-        self.line = line
-        self.tag = match.group(1)
+        self.line: int = line
+        self.tag: str = match.group(1)
 
         if match.group(2).strip() != '':
             self._values = re.split(r'\s+', match.group(2))
         else:
             self._values = []
-        
-        print(self._values)
 
         for i in range(len(self._values)):
 
@@ -125,13 +124,16 @@ def build_archive(
     excludes = []
 
     for tag in tags:
-        match tag.tag:
+        match tag.tag.lower():
             case 'ver':
                 version = tag[0]
             case 'include':
                 includes.append(tag[0])
             case 'exclude':
                 excludes.append(tag[0])
+            case 'requires':
+                includes.append(tag[0])
+                new_text += f"\n**NOTE**: This archive requires the archive '{tag[0]}' to be installed in order to function.\nIt will be included in the archive package, but does not need to be put in place if you already have '{tag[0]}' installed.\n"
             case _:
                 raise ArchiverException(f'Unknown tag: {tag.tag}')
 
@@ -164,7 +166,10 @@ def build_archive(
     print(f'Temp build path = {build_jav}')
 
     # create files_{name}.json
-    with open(os.path.join(build, f'files_{name}.json'), 'w') as jsf:
+    build_extra = os.path.join(build, EXTRA_FRAME)
+
+    os.makedirs(build_extra, exist_ok=True)
+    with open(os.path.join(build_extra, f'files_{name}.json'), 'w') as jsf:
         json.dump(
             {
                 'version': version, 

@@ -3,26 +3,5 @@
         "version": "1.0",
         "name": "collections",
         "include": ["collections"]
-    },
-    {
-        "version": "0.1",
-        "name": "frc",
-        "include": ["frc"],
-        "exclude": ["frc\\vendors"]
-    },
-    {
-        "version": "0.1",
-        "name": "rev",
-        "include": ["frc\\vendors\\rev"]
-    },
-    {
-        "version": "0.2",
-        "name": "units",
-        "include": ["units"]
-    },
-    {
-        "version": "0.1",
-        "name": "util",
-        "include": ["math", "function"]
     }
 ]

@@ -1,4 +1,4 @@
-"""A simple, versatile archiver script for Java projects."""
+"""A simple archiver script built for Java projects."""
 
 __author__ = 'Team 555 (Dylan Rafael)'
 __version__ = '1.0.0'
@@ -6,6 +6,7 @@ __version__ = '1.0.0'
 # imports
 import json
 import os
+import re
 import sys
 import tempfile
 import shutil
@@ -25,10 +26,18 @@ JAVA_DIR = os.path.join(PROJ_DIR, JAVA_DIR_NAME)
 OUTPUT_DIR = os.path.join(PROJ_DIR, 'archives')
 ARCHIVES_JSON = os.path.join(THIS_DIR, 'archives.json')
 
+ADESC_DIR = os.path.join(THIS_DIR, 'adesc')
+
+VER_PATTERN = re.compile(r'\s*\<!ver ([0123456789\.]+)\!>\s*')
+
+
+# custom exception type
+class ArchiverException(Exception):
+    pass
+
 
 # function to build a single archive
 def build_archive(
-    version: str, 
     name: str, 
     includes: list[str], 
     excludes: list[str], 
@@ -61,6 +70,44 @@ def build_archive(
 
     print(f'Temp build path = {build_jav}')
 
+    # copy archive description
+    desc_path = os.path.join(ADESC_DIR, f'{name}.md')
+    if not os.path.exists(desc_path):
+        raise ArchiverException(f"Archive description not found for archive '{name}'")
+
+    # get version from archive description
+    desc_text = Path(desc_path).read_text()
+
+    new_text = ''
+    found_match = False
+
+    for l in desc_text.splitlines():
+
+        match = VER_PATTERN.match(l)
+
+        if match:
+            found_match = True
+            version = match.group(1)
+            continue
+        
+        new_text += l + '\n'
+
+    if not found_match:
+        raise ArchiverException(f"Archive description for archive '{name}' is invalid: no version found.")
+
+    copy_desc_path = os.path.join(output_folder, f'{name}.md')
+    Path(copy_desc_path).write_text(new_text)
+
+    # create files_{name}.json
+    with open(os.path.join(build, f'files_{name}.json'), 'w') as jsf:
+        json.dump(
+            {
+                'version': version, 
+                'files': [r for _, r in files]
+            }, 
+            jsf
+        )
+
     # copy files to temp folder
     for f, rel_src in files:
         src = os.path.normpath(f)
@@ -70,16 +117,6 @@ def build_archive(
 
         os.makedirs(os.path.split(dst)[0], exist_ok=True)
         shutil.copyfile(src, dst)
-
-    # create files_name.json
-    with open(os.path.join(build, f'files_{name}.json'), 'w') as jsf:
-        json.dump(
-            {
-                'version': version, 
-                'files': [r for _, r in files]
-            }, 
-            jsf
-        )
 
     # create zip
     print('Now archiving!')
@@ -122,7 +159,6 @@ def main():
         for proc in js:
             print()
             build_archive(
-                proc['version'],
                 proc['name'], 
                 proc['include'], 
                 proc['exclude'] if 'exclude' in proc else [],
@@ -130,14 +166,19 @@ def main():
                 all_files
             )
         
-    except Exception:
+    except Exception as em:
 
         # print build failure messages and delete temp folder
         print()
         print('-' * 50)
         print(f'[FATAL] Build failed!')
-        print('-' * 50)
-        traceback.print_exc()
+
+        if isinstance(em, ArchiverException):
+            print(em)
+        else:
+            print('-' * 50)
+            traceback.print_exc()
+        
         print('-' * 50)
 
         shutil.rmtree(temp)

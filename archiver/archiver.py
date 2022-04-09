@@ -13,6 +13,7 @@ import tempfile
 import shutil
 import time
 import traceback
+from enum import Enum
 from pathlib import Path
 
 
@@ -96,110 +97,166 @@ def read_tags(text: str) -> tuple[list[Tag], str]:
     return tags, new_text
 
 
-# function to build a single archive
-def build_archive(
-    desc_file: str,
-    output_folder: str, 
-    all_files: list[tuple[Path, str]]
-    ):
+# classes
+class ArchiveState(Enum):
+    UNKNOWN = 0
+    UNSTARTED = 1
+    BEING_BUILT = 2
+    FINISHED = 3
 
-    # start timer
-    time_start = time.time()
 
-    # get archive name
-    name_path = os.path.splitext(os.path.splitext(desc_file)[0])[0]
-    name = os.path.split(name_path)[1]
+class SourceFile:
 
-    print(f"Now building '{name}'")
+    def __init__(self, path: Path, rel: str):
+        self.path: Path = path
+        self.rel: str = rel
 
-    # get archive information
-    desc_text = Path(desc_file).read_text()
+    def __getitem__(self, i):
+        if i == 0:
+            return self.path
+        elif i == 1:
+            return self.rel
+        else:
+            raise IndexError(f'{i} is not a valid index for SourceFile.')
 
-    # get tags from archive description
-    tags, new_text = read_tags(desc_text)
 
-    # parse tags
-    version = None
-    includes = []
-    excludes = []
+class Archive:
 
-    for tag in tags:
-        match tag.tag.lower():
-            case 'ver':
-                version = tag[0]
-            case 'include':
-                includes.append(tag[0])
-            case 'exclude':
-                excludes.append(tag[0])
-            case 'requires':
-                includes.append(tag[0])
-                new_text += f"\n**NOTE**: This archive requires the archive '{tag[0]}' to be installed in order to function.\nA copy of it will be included in the archive package, but does not need to be put in place if you already have '{tag[0]}' installed.\n"
-            case 'external':
-                new_text += f"\n**NOTE**: This archive requires the external library '{tag[0]}' to be installed in order to function."
-            case _:
-                raise ArchiverException(f'Unknown tag: {tag.tag}')
+    def __init__(self, path: str):
 
-    if not version:
-        raise ArchiverException(f"Archive description for archive '{name}' is invalid: no version found.")
+        name_path = os.path.splitext(os.path.splitext(path)[0])[0]
+        self.name: str = os.path.split(name_path)[1]
 
-    # copy new archive description
-    copy_desc_path = os.path.join(output_folder, f'{name}.md')
-    Path(copy_desc_path).write_text(new_text)
+        self.path: str = path
+        self.version: str = ''
+        self.files: list[SourceFile] = []
+        self.description: str = ''
+        self.state: ArchiveState = ArchiveState.UNSTARTED
+    
+    def build(self, 
+        all_files: list[SourceFile], 
+        all_archives: dict[str, 'Archive']):
 
-    # get files
-    files = [
-        (f, rel) for f, rel in all_files 
-        if any(rel.startswith(i) for i in includes)
-    ]
+        # start building
+        print(f"Now building '{self.name}'")
+        self.state = ArchiveState.BEING_BUILT
 
-    if len(excludes) != 0:
+        # get archive information
+        desc_text_raw = Path(self.path).read_text()
+
+        # get tags from archive description
+        tags, desc_text = read_tags(desc_text_raw)
+
+        # parse tags
+        version = None
+        req_files = []
+        includes = []
+        excludes = []
+
+        for tag in tags:
+            match tag.tag.lower():
+                case 'ver':
+                    version = tag[0]
+                case 'include':
+                    includes.append(tag[0])
+                case 'exclude':
+                    excludes.append(tag[0])
+                case 'external':
+                    desc_text += f"\n**NOTE**: This archive requires the external library '{tag[0]}' to be installed in order to function."
+                case 'requires':
+
+                    desc_text += f"\n**NOTE**: This archive requires the archive '{tag[0]}' to be installed in order to function.\nA copy of it will be included in the archive package, but does not need to be put in place if you already have '{tag[0]}' installed.\n"
+
+                    # check for required archives
+                    if tag[0] not in all_archives:
+                        raise ArchiverException(f"Archive '{self.name}' requires non-existent archive '{tag[0]}'.")
+                    
+                    # check for circular dependency
+                    if all_archives[tag[0]].state == ArchiveState.BEING_BUILT:
+                        raise ArchiverException(f"Archive '{self.name}' is self-referencing.")
+                    
+                    # check for unstarted archives
+                    if all_archives[tag[0]].state == ArchiveState.UNSTARTED:
+                        all_archives[tag[0]].build(all_files, all_archives)
+
+                    # add all archive files to required files
+                    req_files += all_archives[tag[0]].files
+
+                case _:
+                    raise ArchiverException(f'Unknown tag: {tag.tag}')
+
+        if not version:
+            raise ArchiverException(f"Archive description for archive '{self.name}' is invalid: no version found.")
+
+        self.version = version
+        self.description = desc_text
+
+        # get files
         files = [
-            (f, rel) for (f, rel) in files
-            if not any(rel.startswith(e) for e in excludes)
+            sf for sf in all_files 
+            if any(sf.rel.startswith(i) for i in includes)
         ]
 
-    # create temp folder
-    build = tempfile.mkdtemp()
+        if len(excludes) != 0:
+            files = [
+                sf for sf in files
+                if not any(sf.rel.startswith(e) for e in excludes)
+            ]
 
-    # create java folder
-    build_jav = os.path.join(build, BUILD_FRAME)
-    os.makedirs(build_jav)
+        files += req_files
 
-    print(f'Temp build path = {build_jav}')
-
-    # create files_{name}.json
-    build_extra = os.path.join(build, EXTRA_FRAME)
-
-    os.makedirs(build_extra, exist_ok=True)
-    with open(os.path.join(build_extra, f'files_{name}.json'), 'w') as jsf:
-        json.dump(
-            {
-                'version': version, 
-                'files': [r for _, r in files]
-            }, 
-            jsf
-        )
-
-    # copy files to temp folder
-    for f, rel_src in files:
-        src = os.path.normpath(f)
-        dst = os.path.normpath(os.path.join(build_jav, rel_src))
-
-        print(f'Copying {rel_src} . . . ')
-
-        os.makedirs(os.path.split(dst)[0], exist_ok=True)
-        shutil.copyfile(src, dst)
-
-    # create zip
-    print('Now archiving!')
-    output_fn = name
-    output = os.path.join(output_folder, output_fn)
-    shutil.make_archive(output, 'tar', build)
-
-    # delete temp folder
-    shutil.rmtree(build)
+        self.files = files
+        
+        # finish building
+        self.state = ArchiveState.FINISHED
     
-    print(f"Done building '{name}'! Took {time.time() - time_start:.5} seconds.")
+
+    def write_to(self, output_dir: str):
+
+        # copy new archive description
+        desc_path = os.path.join(output_dir, f'{self.name}.md')
+        Path(desc_path).write_text(self.description)
+
+        # create temp folder
+        build = tempfile.mkdtemp()
+
+        # create java folder
+        build_jav = os.path.join(build, BUILD_FRAME)
+        os.makedirs(build_jav)
+
+        print(f'Temp build path = {build_jav}')
+
+        # create files_{name}.json
+        build_extra = os.path.join(build, EXTRA_FRAME)
+
+        os.makedirs(build_extra, exist_ok=True)
+        with open(os.path.join(build_extra, f'files_{self.name}.json'), 'w') as jsf:
+            json.dump(
+                {
+                    'version': self.version, 
+                    'files': [f.rel for f in self.files]
+                }, 
+                jsf
+            )
+
+        # copy files to temp folder
+        for f, rel_src in self.files:
+            src = os.path.normpath(f)
+            dst = os.path.normpath(os.path.join(build_jav, rel_src))
+
+            print(f'Copying {rel_src} . . . ')
+
+            os.makedirs(os.path.split(dst)[0], exist_ok=True)
+            shutil.copyfile(src, dst)
+
+        # create zip
+        print('Now archiving!')
+        output_fn = self.name
+        output = os.path.join(output_dir, output_fn)
+        shutil.make_archive(output, 'tar', build)
+
+        # delete temp folder
+        shutil.rmtree(build)
 
 
 # Main function
@@ -220,21 +277,28 @@ def main():
 
     # get all files in java project
     all_files = [
-        (f.absolute(), os.path.relpath(f, JAVA_DIR)) 
+        SourceFile(f.absolute(), os.path.relpath(f, JAVA_DIR)) 
         for f in Path(JAVA_DIR).glob("**/*.*")
     ]
 
     try:
 
         # build each archive
-        for arch in os.listdir(SOURCE_DIR):
+        all_archives = {
+            a.name: a for a in 
+            (Archive(os.path.join(SOURCE_DIR, f)) for f in os.listdir(SOURCE_DIR) if f.endswith('.archive.md'))
+        }
 
-            # skip non archive files
-            if not arch.endswith('.archive.md'):
-                continue
+        for arch in all_archives.values():
 
             print()
-            build_archive(os.path.join(SOURCE_DIR, arch), temp, all_files)
+            
+            time_start = time.time()
+
+            arch.build(all_files, all_archives)
+            arch.write_to(temp)
+
+            print(f"Done building '{arch.name}'! Took {time.time() - time_start:.5} seconds.")
         
     except Exception as em:
 

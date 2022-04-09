@@ -133,7 +133,9 @@ def build_archive(
                 excludes.append(tag[0])
             case 'requires':
                 includes.append(tag[0])
-                new_text += f"\n**NOTE**: This archive requires the archive '{tag[0]}' to be installed in order to function.\nIt will be included in the archive package, but does not need to be put in place if you already have '{tag[0]}' installed.\n"
+                new_text += f"\n**NOTE**: This archive requires the archive '{tag[0]}' to be installed in order to function.\nA copy of it will be included in the archive package, but does not need to be put in place if you already have '{tag[0]}' installed.\n"
+            case 'external':
+                new_text += f"\n**NOTE**: This archive requires the external library '{tag[0]}' to be installed in order to function."
             case _:
                 raise ArchiverException(f'Unknown tag: {tag.tag}')
 

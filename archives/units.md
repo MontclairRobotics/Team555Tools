@@ -9,4 +9,4 @@
 - Quantity: a value bound to a unit
 
 **NOTE**: This archive requires the archive 'collections' to be installed in order to function.
-It will be included in the archive package, but does not need to be put in place if you already have 'collections' installed.
+A copy of it will be included in the archive package, but does not need to be put in place if you already have 'collections' installed.

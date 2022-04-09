@@ -1,6 +1,3 @@
-<!ver 1.0.0!>
-<!include math!>
-<!include function!>
 # Util
 
 ### Major Contents:
@@ -11,3 +8,7 @@
     - DoublePredicate: a predicate which acts on a double
     - DoubleDualPredicate: a predicate which acts on two doubles
     - DoubleTriPredicate: a predicate which acts on three doubles
+
+@ver 1.0.0
+@include math
+@include function

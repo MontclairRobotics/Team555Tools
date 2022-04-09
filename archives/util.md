@@ -8,3 +8,4 @@
     - DoublePredicate: a predicate which acts on a double
     - DoubleDualPredicate: a predicate which acts on two doubles
     - DoubleTriPredicate: a predicate which acts on three doubles
+

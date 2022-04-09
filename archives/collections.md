@@ -5,3 +5,4 @@
 - DivCountBag: A collection facsimile which represents two collections which act as chains of multiplication being divided by one another
 - SortedArrayList: An ArrayList which automatically sorts added elements
 - HashCountBag: An implemenetation of the CountBag interface
+

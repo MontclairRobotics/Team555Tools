@@ -1,6 +1,3 @@
-<!ver 0.5.0!>
-<!include units!>
-<!requires collections!>
 # Units
 
 ### Major Contents:
@@ -10,3 +7,7 @@
     - StandanrdUnits: contains definitions for most standard units
 - Dimension: a class which represents a dimension of measure
 - Quantity: a value bound to a unit
+
+@ver 0.5.0
+@include units
+@requires collections

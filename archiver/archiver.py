@@ -31,8 +31,10 @@ ARCHIVES_JSON = os.path.join(THIS_DIR, 'archives.json')
 
 SOURCE_DIR = THIS_DIR
 
-TAG_PATTERN = re.compile(r'\s*\<!(\w+)(?:\s(.+))?!>\s*')
-COMMENT_PATTERN = re.compile(r'\s*\<#.+#>\s*')
+TAG_PATTERN = re.compile(r'^\s*@([\w\d]+)\s+(.*?)$', re.MULTILINE)
+COMMENT_PATTERN = re.compile(r'^\s*@:.*?$', re.MULTILINE)
+ESCAPE_PATTERN = re.compile(r'^(\s*)@@(.*)$', re.MULTILINE)
+
 INT_PATTERN = re.compile(r'\-?\d+$')
 FLOAT_PATTERN = re.compile(r'\-?\d+\.\d+$')
 
@@ -71,6 +73,10 @@ class Tag:
 
         return self._values[i]
 
+    def __len__(self):
+        
+        return len(self._values)
+
 
 
 # function to read all tags from text then return a list of Tag objects
@@ -89,7 +95,14 @@ def read_tags(text: str) -> tuple[list[Tag], str]:
             continue
 
         comment = COMMENT_PATTERN.match(l)
+
         if comment:
+            continue
+
+        escape = ESCAPE_PATTERN.match(l)
+
+        if escape:
+            new_text += escape.group(1) + '@' + escape.group(2)
             continue
 
         new_text += l + '\n'

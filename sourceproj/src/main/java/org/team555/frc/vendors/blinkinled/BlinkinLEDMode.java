@@ -1,4 +1,4 @@
-package org.team555.frc.vendors.rev;
+package org.team555.frc.vendors.blinkinled;
 
 public enum BlinkinLEDMode 
 {

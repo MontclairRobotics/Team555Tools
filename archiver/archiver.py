@@ -31,7 +31,7 @@ ARCHIVES_JSON = os.path.join(THIS_DIR, 'archives.json')
 
 SOURCE_DIR = THIS_DIR
 
-TAG_PATTERN = re.compile(r'^\s*@([\w\d]+)\s+(.*?)$', re.MULTILINE)
+TAG_PATTERN = re.compile(r'^\s*@([\w\d_\-]+)\s+(.*?)$', re.MULTILINE)
 COMMENT_PATTERN = re.compile(r'^\s*@:.*?$', re.MULTILINE)
 ESCAPE_PATTERN = re.compile(r'^(\s*)@@(.*)$', re.MULTILINE)
 
@@ -66,14 +66,14 @@ class Tag:
                 self._values[i] = float(val)
     
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> str | int | float:
 
         if i >= len(self._values):
             raise ArchiverException(f'Tag {self.tag} has less than {i + 1} argument(s), despite requiring more.')
 
         return self._values[i]
 
-    def __len__(self):
+    def __len__(self) -> int:
         
         return len(self._values)
 
@@ -175,10 +175,10 @@ class Archive:
                 case 'exclude':
                     excludes.append(tag[0])
                 case 'external':
-                    desc_text += f"\n**NOTE**: This archive requires the external library '{tag[0]}' to be installed in order to function."
+                    desc_text += f"\n\n**NOTE**: This archive requires the external library '{tag[0]}' to be installed in order to function."
                 case 'requires':
 
-                    desc_text += f"\n**NOTE**: This archive requires the archive '{tag[0]}' to be installed in order to function.\nA copy of it will be included in the archive package, but does not need to be put in place if you already have '{tag[0]}' installed.\n"
+                    desc_text += f"\n\n**NOTE**: This archive requires the archive '{tag[0]}' to be installed in order to function.\nA copy of it will be included in the archive package, but does not need to be put in place if you already have '{tag[0]}' installed.\n"
 
                     # check for required archives
                     if tag[0] not in all_archives:
@@ -195,6 +195,10 @@ class Archive:
                     # add all archive files to required files
                     req_files += all_archives[tag[0]].files
 
+                case 'volatile':
+                    desc_text += "\n\n**NOTE**: this api is still being worked on and will see breaking changes."
+                case 'volatile-until':
+                    desc_text += f"\n\n**NOTE**: this api is still being worked on and will see breaking changes until it reaches version {tag[0]}."
                 case _:
                     raise ArchiverException(f'Unknown tag: {tag.tag}')
 

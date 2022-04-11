@@ -8,8 +8,27 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 import org.team555.frc.command.button.AnalogTrigger;
 
+/**
+ * Represents a simple game controller.
+ * This class is mostly a wrapper around {@link PS4Controller} and {@link XboxController}.
+ * 
+ * <p>
+ * Axes and buttons (stored in respective enums) are named such that they 
+ * are of the form XBOX_PS4 unless both controllers share the same functionality. 
+ * The DPad enum wraps the angles {@code 0}, {@code 90}, {@code 180}, and {@code 270}.
+ * Checking if a DPad button is pressed results in a check if the POV of the controller
+ * os within a 45 degree range (includive) of that DPad button's angle.
+ * 
+ * @author Team 555 (Dylan Rafael)
+ * @version 0.6
+ * @since 0.5
+ */
 public abstract class GameController 
 {
+    /**
+     * Represents one of the analog inputs on a game controller.
+     * Things like joystick positions and triggers can be found here.
+     */
     public static enum Axis
     {
         LEFT_X,
@@ -21,6 +40,10 @@ public abstract class GameController
         LEFT_TRIGGER,
         RIGHT_TRIGGER
     }
+    /**
+     * Represents one of the digit inputs on a game controller.
+     * Things like the "start" or "a" buttons can be found here.
+     */
     public static enum Button
     {
         A_CROSS,
@@ -36,6 +59,10 @@ public abstract class GameController
         LEFT_STICK,
         RIGHT_STICK,
     }
+    /**
+     * Represents one of the D-Pad inputs of a controller.
+     * Can either be {@code UP}, {@code DOWN}, {@code LEFT}, or {@code RIGHT}
+     */
     public static enum DPad
     {
         UP(0),
@@ -49,8 +76,7 @@ public abstract class GameController
             this.angle = angle;
         }
 
-        private int angle;
-        public int getAngle() {return angle;}
+        public final int angle;
 
         public static boolean get(DPad type, int pov)
         {
@@ -66,6 +92,11 @@ public abstract class GameController
         }
     }
 
+    /**
+     * Return an axis as an xbox axis.
+     * @param axisType the axis to convert
+     * @return the axis as an xbox axis
+     */
     public static XboxController.Axis toXbox(Axis axisType)
     {
         switch(axisType)
@@ -86,6 +117,11 @@ public abstract class GameController
         return null;
     }
 
+    /**
+     * Return an axis as a ps4 axis.
+     * @param axisType the axis to convert
+     * @return the axis as a ps4 axis
+     */
     public static PS4Controller.Axis toPS4(Axis axisType)
     {
         switch(axisType) 
@@ -106,6 +142,11 @@ public abstract class GameController
         return null;
     }
 
+    /**
+     * Return a button as an xbox axis.
+     * @param axisType the button to convert
+     * @return the button as an xbox axis
+     */
     public static XboxController.Button toXbox(Button buttonType)
     {
         switch(buttonType)
@@ -135,6 +176,11 @@ public abstract class GameController
         return null;
     }
 
+    /**
+     * Return a button as a ps4 axis.
+     * @param axisType the button to convert
+     * @return the button as a ps4 axis
+     */
     public static PS4Controller.Button toPS4(Button buttonType)
     {
         switch(buttonType)
@@ -164,39 +210,100 @@ public abstract class GameController
         return null;
     }
 
+    /**
+     * Represents a type of game controller supported by this class.
+     * Can either be XBOX or PS4.
+     */
     public static enum Type
     {
         XBOX,
         PS4,
     }
     
+    /**
+     * Gets a boolean representing whether or not the given button is currently pressed.
+     * @param type the button type to check
+     * @return {@code true} if the button is currently pressed, {@code false} otherwise
+     */
     public abstract boolean getButtonValue(Button type);
+    /**
+     * Gets a boolean representing whether or not the given button was just pressed.
+     * @param type the button type to check
+     * @return {@code true} if the button was just pressed, {@code false} otherwise
+     */
     public abstract boolean getButtonPressed(Button type);
+    /**
+     * Gets a boolean representing whether or not the given button was just released.
+     * @param type the button type to check
+     * @return {@code true} if the button was just released, {@code false} otherwise
+     */
     public abstract boolean getButtonReleased(Button type);
     
+    /**
+     * Gets a double representing the given axis.
+     * @param type the axis type
+     * @return the value of that axis
+     */
     public abstract double getAxisValue(Axis type);
+    
+    /**
+     * Gets a double representing the pov of this controller.
+     * @return the pov of this controller, from 0 upto 360 degrees
+     */
     public abstract double getPOVValue();
 
+    /**
+     * Gets a boolean representing whether or not the given dpad button is currently pressed.
+     * @param type the button type to check
+     * @return {@code true} if the dpad button is currently pressed, {@code false} otherwise
+     */
     public abstract boolean getDPadRaw(DPad type);
-    public abstract Type getType();
 
+    /**
+     * Gets the controller type of this instance.
+     * @return the value of {@link GameController.Type} which this instance represents.
+     */
+    public abstract Type type();
+
+    /**
+     * Gets a trigger representing the provided button.
+     * @return a trigger which tracks the provided button
+     */
     public final Trigger getButton(Button type) 
     {
         return new Trigger(() -> getButtonValue(type));
     }
+    /**
+     * Gets a trigger representing the provided dpad button.
+     * @return a trigger which tracks the provided dpad button
+     */
     public final Trigger getDPad(DPad type)
     {
         return new Trigger(() -> getDPadRaw(type));
     }
+    /**
+     * Gets an analog trigger representing the provided axis.
+     * @return am analog trigger which tracks the provided axis
+     */
     public final AnalogTrigger getAxis(Axis type)
     {
         return new AnalogTrigger(() -> getAxisValue(type));
     }
+    /**
+     * Gets an analog trigger representing this controller's POV.
+     * @return an analog trigger which tracks the controller's POV
+     */
     public final AnalogTrigger getPOV()
     {
         return new AnalogTrigger(() -> getPOVValue());
     }
 
+    /**
+     * Creates a new instance of {@link GameController} which wraps an 
+     * xbox controller.
+     * @param channel the channel on which the controller exists
+     * @return a new instance which wraps an xbox controller
+     */
     public static GameController xbox(int channel)
     {
         return new GameController()
@@ -230,7 +337,7 @@ public abstract class GameController
             }
 
             @Override
-            public Type getType() {
+            public Type type() {
                 return Type.XBOX;
             }
 
@@ -240,6 +347,12 @@ public abstract class GameController
             }
         };
     }
+    /**
+     * Creates a new instance of {@link GameController} which wraps a
+     * ps4 controller.
+     * @param channel the channel on which the controller exists
+     * @return a new instance which wraps a ps4 controller
+     */
     public static GameController ps4(int channel)
     {
         return new GameController()
@@ -273,7 +386,7 @@ public abstract class GameController
             }
 
             @Override
-            public Type getType() {
+            public Type type() {
                 return Type.PS4;
             }
             
@@ -284,6 +397,13 @@ public abstract class GameController
         };
     }
 
+    /**
+     * Creates a new instance of {@link GameController} which wraps the specified
+     * controller type.
+     * @param type the type of controller to wrap
+     * @param channel the channel on which the controller exists
+     * @return a new instance which wraps the specified controller type
+     */
     public static GameController from(Type type, int channel)
     {
         return type.equals(Type.XBOX) ? xbox(channel) : ps4(channel);

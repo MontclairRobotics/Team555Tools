@@ -11,10 +11,23 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 
+/**
+ * Class which holds all the autonomous commands and
+ * sets the default autoCommand
+ * 
+ * @author Team 555 (Dylan Rafael)
+ * @version 1.0
+ * @since 1.0
+ */
 public final class AutoCommands 
 {
     private AutoCommands() {}
 
+    /** 
+     * the commands are held in a HashMap
+     * The keys are the  names of the auto commands as a Strings
+     * The values are the commands themselves 
+     */
     private static final Map<String, Supplier<Command>> commands = new HashMap<>();
 
     // Settings
